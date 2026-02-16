@@ -1,0 +1,53 @@
+{
+  "name": "Warp Terminal",
+  "processNames": ["warp"],
+  "mappings": [
+    { "trigger": "Alt+C", "action": "Ctrl+Shift+C" },
+    { "trigger": "Alt+V", "action": "Ctrl+Shift+V" },
+    { "trigger": "Alt+F", "action": "Ctrl+Shift+F" },
+    { "trigger": "Alt+A", "action": "Ctrl+A" },
+    { "trigger": "Alt+Z", "action": "Ctrl+Z" },
+    { "trigger": "Alt+Shift+Z", "action": "Ctrl+Shift+Z" },
+    { "trigger": "Alt+W", "action": "Ctrl+Shift+W" },
+    { "trigger": "Alt+Q", "action": "special:close-window" },
+
+    { "trigger": "Alt+T", "action": "Ctrl+Shift+T" },
+    { "trigger": "Alt+Shift+T", "action": "Ctrl+Alt+T" },
+    { "trigger": "Alt+1", "action": "Ctrl+1" },
+    { "trigger": "Alt+2", "action": "Ctrl+2" },
+    { "trigger": "Alt+3", "action": "Ctrl+3" },
+    { "trigger": "Alt+4", "action": "Ctrl+4" },
+    { "trigger": "Alt+5", "action": "Ctrl+5" },
+    { "trigger": "Alt+6", "action": "Ctrl+6" },
+    { "trigger": "Alt+7", "action": "Ctrl+7" },
+    { "trigger": "Alt+8", "action": "Ctrl+8" },
+    { "trigger": "Alt+9", "action": "Ctrl+9" },
+    { "trigger": "Alt+Shift+[", "action": "Ctrl+PageUp" },
+    { "trigger": "Alt+Shift+]", "action": "Ctrl+PageDown" },
+
+    { "trigger": "Alt+D", "action": "Ctrl+Shift+D" },
+    { "trigger": "Alt+Shift+D", "action": "Ctrl+Shift+E" },
+    { "trigger": "Alt+P", "action": "Ctrl+Shift+P" },
+    { "trigger": "Alt+L", "action": "Ctrl+Shift+L" },
+    { "trigger": "Alt+K", "action": "Ctrl+Shift+K" },
+    { "trigger": "Alt+B", "action": "Ctrl+Shift+B" },
+    { "trigger": "Alt+I", "action": "Ctrl+Shift+I" },
+
+    { "trigger": "Alt+[", "action": "Ctrl+Shift+[" },
+    { "trigger": "Alt+]", "action": "Ctrl+Shift+]" },
+
+    { "trigger": "Alt+,", "action": "Ctrl+," },
+    { "trigger": "Alt+Shift+C", "action": "Ctrl+Shift+C" },
+    { "trigger": "Alt+Shift+S", "action": "Ctrl+Shift+S" },
+
+    { "trigger": "Alt+=", "action": "Ctrl+=" },
+    { "trigger": "Alt+-", "action": "Ctrl+-" },
+    { "trigger": "Alt+0", "action": "Ctrl+0" },
+
+    { "trigger": "Alt+Left", "action": "Home" },
+    { "trigger": "Alt+Right", "action": "End" },
+    { "trigger": "Alt+Shift+Left", "action": "Shift+Home" },
+    { "trigger": "Alt+Shift+Right", "action": "Shift+End" },
+    { "trigger": "Alt+Backspace", "action": "Ctrl+Backspace" }
+  ]
+}

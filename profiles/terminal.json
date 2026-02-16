@@ -1,0 +1,16 @@
+{
+  "name": "Terminal (conservative)",
+  "processNames": ["windowsterminal", "powershell", "cmd", "wt", "pwsh"],
+  "mappings": [
+    { "trigger": "Alt+Shift+C", "action": "Ctrl+Shift+C" },
+    { "trigger": "Alt+Shift+V", "action": "Win+V" },
+    { "trigger": "Alt+A", "action": "Ctrl+A" },
+    { "trigger": "Alt+Z", "action": "Ctrl+Z" },
+    { "trigger": "Alt+F", "action": "Ctrl+F" },
+    { "trigger": "Alt+Q", "action": "special:close-window" },
+
+    { "trigger": "Alt+Left", "action": "Home" },
+    { "trigger": "Alt+Right", "action": "End" },
+    { "trigger": "Alt+Backspace", "action": "Ctrl+Backspace" }
+  ]
+}

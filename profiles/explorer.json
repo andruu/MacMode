@@ -1,0 +1,19 @@
+{
+  "name": "Windows Explorer",
+  "processNames": ["explorer"],
+  "mappings": [
+    { "trigger": "Alt+C", "action": "Ctrl+C" },
+    { "trigger": "Alt+V", "action": "Ctrl+V" },
+    { "trigger": "Alt+X", "action": "Ctrl+X" },
+    { "trigger": "Alt+Z", "action": "Ctrl+Z" },
+    { "trigger": "Alt+Shift+Z", "action": "Ctrl+Y" },
+    { "trigger": "Alt+A", "action": "Ctrl+A" },
+    { "trigger": "Alt+S", "action": "Ctrl+S" },
+    { "trigger": "Alt+N", "action": "Ctrl+N" },
+    { "trigger": "Alt+Shift+N", "action": "Ctrl+Shift+N" },
+    { "trigger": "Alt+F", "action": "Ctrl+F" },
+    { "trigger": "Alt+W", "action": "Ctrl+W" },
+    { "trigger": "Alt+Q", "action": "special:close-window" },
+    { "trigger": "Alt+Backspace", "action": "Delete" }
+  ]
+}

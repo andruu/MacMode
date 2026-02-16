@@ -1,0 +1,22 @@
+## .NET
+bin/
+obj/
+dist/
+
+## IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+## Logs
+*.log
+
+## Build artifacts
+publish/
