@@ -16,6 +16,9 @@
     <Description>Mac-style keyboard shortcuts for Windows</Description>
     <Company>MacMode</Company>
     <Copyright>Copyright © MacMode</Copyright>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
