@@ -57,6 +57,11 @@ public static class NativeMethods
     [DllImport("user32.dll")]
     public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
 
+    /// <summary>Destroys an icon handle from <see cref="System.Drawing.Bitmap.GetHicon"/> after cloning.</summary>
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool DestroyIcon(IntPtr hIcon);
+
     [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     public static extern int GetWindowTextLength(IntPtr hWnd);
 

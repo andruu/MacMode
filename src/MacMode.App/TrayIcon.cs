@@ -32,6 +32,7 @@ public sealed class TrayIcon : IDisposable
     private readonly ToolStripMenuItem _toggleItem;
     private readonly ToolStripMenuItem _suspendItem;
     private readonly ToolStripMenuItem _startOnLoginItem;
+    private readonly ToolStripMenuItem _startOnLoginAdminItem;
 
     private readonly AppBootstrapper _app;
     private readonly MappingEngine _engine;
@@ -62,11 +63,18 @@ public sealed class TrayIcon : IDisposable
         _suspendItem = new ToolStripMenuItem("Suspend (10 min)");
         _suspendItem.Click += OnSuspend;
 
+        var startupMode = StartupManager.GetCurrentMode();
         _startOnLoginItem = new ToolStripMenuItem("Start on Login")
         {
-            Checked = StartupManager.IsStartOnLoginEnabled()
+            Checked = startupMode == StartupMode.Registry
         };
         _startOnLoginItem.Click += OnStartOnLogin;
+
+        _startOnLoginAdminItem = new ToolStripMenuItem("Start on Login (Admin)")
+        {
+            Checked = startupMode == StartupMode.TaskScheduler
+        };
+        _startOnLoginAdminItem.Click += OnStartOnLoginAdmin;
 
         var editProfilesItem = new ToolStripMenuItem("Edit Profiles...");
         editProfilesItem.Click += OnEditProfiles;
@@ -81,6 +89,7 @@ public sealed class TrayIcon : IDisposable
         _contextMenu.Items.Add(_suspendItem);
         _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_startOnLoginItem);
+        _contextMenu.Items.Add(_startOnLoginAdminItem);
         _contextMenu.Items.Add(editProfilesItem);
         _contextMenu.Items.Add(restartAsAdminItem);
         _contextMenu.Items.Add(new ToolStripSeparator());
@@ -215,10 +224,25 @@ public sealed class TrayIcon : IDisposable
 
     private void OnStartOnLogin(object? sender, EventArgs e)
     {
-        bool newValue = !_startOnLoginItem.Checked;
-        StartupManager.SetStartOnLogin(newValue);
-        _startOnLoginItem.Checked = newValue;
-        _settings.Current.StartOnLogin = newValue;
+        bool enable = !_startOnLoginItem.Checked;
+        StartupManager.DisableAll();
+        if (enable)
+            StartupManager.EnableRegistry();
+        _startOnLoginItem.Checked = enable;
+        _startOnLoginAdminItem.Checked = false;
+        _settings.Current.StartOnLogin = enable;
+        _settings.Save();
+    }
+
+    private void OnStartOnLoginAdmin(object? sender, EventArgs e)
+    {
+        bool enable = !_startOnLoginAdminItem.Checked;
+        StartupManager.DisableAll();
+        if (enable)
+            StartupManager.EnableTaskScheduler();
+        _startOnLoginAdminItem.Checked = enable;
+        _startOnLoginItem.Checked = false;
+        _settings.Current.StartOnLogin = enable;
         _settings.Save();
     }
 
@@ -274,7 +298,9 @@ public sealed class TrayIcon : IDisposable
     private void UpdateTrayState()
     {
         _toggleItem.Text = _engine.Enabled ? "Mac Mode: ON" : "Mac Mode: OFF";
+        Icon? previous = _notifyIcon.Icon;
         _notifyIcon.Icon = CreateTrayIcon(_engine.Enabled);
+        previous?.Dispose();
         string suffix = IsRunningAsAdmin ? " [Admin]" : "";
         _notifyIcon.Text = _engine.Enabled ? $"MacMode (ON){suffix}" : $"MacMode (OFF){suffix}";
     }
@@ -288,7 +314,7 @@ public sealed class TrayIcon : IDisposable
         const int size = 32;
         const int pad = 1;
         const int radius = 7;
-        var bmp = new Bitmap(size, size);
+        using var bmp = new Bitmap(size, size);
 
         using (var g = Graphics.FromImage(bmp))
         {
@@ -339,7 +365,18 @@ public sealed class TrayIcon : IDisposable
             g.DrawArc(smilePen, 9, 14, 14, 10, 15, 150);
         }
 
-        return Icon.FromHandle(bmp.GetHicon());
+        // Bitmap owns the HICON from GetHicon(); once the bitmap is collected the handle
+        // can be destroyed while NotifyIcon still uses it — tray disappears while hooks run.
+        IntPtr hIcon = bmp.GetHicon();
+        try
+        {
+            using Icon linked = Icon.FromHandle(hIcon);
+            return (Icon)linked.Clone();
+        }
+        finally
+        {
+            NativeMethods.DestroyIcon(hIcon);
+        }
     }
 
     /// <summary>
