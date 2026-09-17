@@ -23,7 +23,7 @@ public static class KeySender
                     wScan = 0,
                     dwFlags = 0,
                     time = 0,
-                    dwExtraInfo = IntPtr.Zero
+                    dwExtraInfo = InputOrigin.MacModeTag
                 }
             }
         };
@@ -43,7 +43,7 @@ public static class KeySender
                     wScan = 0,
                     dwFlags = NativeMethods.KEYEVENTF_KEYUP,
                     time = 0,
-                    dwExtraInfo = IntPtr.Zero
+                    dwExtraInfo = InputOrigin.MacModeTag
                 }
             }
         };
@@ -93,7 +93,7 @@ public static class KeySender
             type = NativeMethods.INPUT_MOUSE,
             u = new NativeMethods.INPUTUNION
             {
-                mi = new NativeMethods.MOUSEINPUT { dwFlags = NativeMethods.MOUSEEVENTF_LEFTDOWN }
+                mi = new NativeMethods.MOUSEINPUT { dwFlags = NativeMethods.MOUSEEVENTF_LEFTDOWN, dwExtraInfo = InputOrigin.MacModeTag }
             }
         };
     }
@@ -105,7 +105,7 @@ public static class KeySender
             type = NativeMethods.INPUT_MOUSE,
             u = new NativeMethods.INPUTUNION
             {
-                mi = new NativeMethods.MOUSEINPUT { dwFlags = NativeMethods.MOUSEEVENTF_LEFTUP }
+                mi = new NativeMethods.MOUSEINPUT { dwFlags = NativeMethods.MOUSEEVENTF_LEFTUP, dwExtraInfo = InputOrigin.MacModeTag }
             }
         };
     }

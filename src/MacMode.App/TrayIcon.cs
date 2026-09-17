@@ -8,6 +8,7 @@ using System.Windows.Threading;
 using MacMode.Core.Engine;
 using MacMode.Core.Hook;
 using MacMode.Core.Logging;
+using MacMode.Core.ProcessDetection;
 using MacMode.Core.Settings;
 using NotifyIcon = System.Windows.Forms.NotifyIcon;
 using ToolStripMenuItem = System.Windows.Forms.ToolStripMenuItem;
@@ -38,6 +39,8 @@ public sealed class TrayIcon : IDisposable
     private readonly MappingEngine _engine;
     private readonly SettingsManager _settings;
     private readonly KeyboardHook _hook;
+    private readonly InjectedWindowsTap _raycastTap = new();
+    private readonly RemoteInputPower _remoteInputPower;
 
     private DispatcherTimer? _suspendTimer;
     private readonly DispatcherTimer _hookHealthTimer;
@@ -50,9 +53,16 @@ public sealed class TrayIcon : IDisposable
         _engine = app.Engine;
         _settings = app.Settings;
         _hook = app.Hook;
+        _remoteInputPower = new RemoteInputPower(() =>
+            _settings.Current.RefreshIdleTimersForRemoteInput && _engine.Enabled);
 
         _engine.PanicKeyPressed += OnPanicKey;
         _hook.KeyEvent += OnKeyEvent;
+        _hook.HookReinstalled += _raycastTap.Reset;
+        _app.MouseHook.ButtonPressed += _raycastTap.CancelTap;
+        _app.MouseHook.InjectedInputReceived += OnInjectedMouseInput;
+        if (_settings.Current.RaycastOnInjectedWindowsTap)
+            Logger.Info("Raycast activation for standalone injected Windows-key taps is enabled.");
 
         // Build tray menu
         _contextMenu = new ContextMenuStrip();
@@ -126,10 +136,22 @@ public sealed class TrayIcon : IDisposable
 
     private void OnKeyEvent(object? sender, KeyboardHookEventArgs e)
     {
+        _remoteInputPower.Observe(e.IsInjected, e.IsMacModeInjected);
+        // Raycast's native Windows-key binding works for this user's physical
+        // keyboard but does not activate for Synergy input. Keep that binding
+        // intact and toggle the existing app for an incoming standalone tap.
+        // The launcher distinguishes its own window from Raycast Settings.
+        bool tapEnabled = _settings.Current.RaycastOnInjectedWindowsTap &&
+            _engine.CanRemapInput;
+        if (_raycastTap.Observe(e, tapEnabled))
+            RaycastLauncher.Toggle();
+
         bool suppress = _engine.ProcessKeyEvent(e);
         if (suppress)
             e.Handled = true;
     }
+
+    private void OnInjectedMouseInput() => _remoteInputPower.Observe(true, false);
 
     private void OnProfileError(string message)
     {
@@ -409,6 +431,10 @@ public sealed class TrayIcon : IDisposable
         _hookHealthTimer.Stop();
         _suspendTimer?.Stop();
         _hook.KeyEvent -= OnKeyEvent;
+        _hook.HookReinstalled -= _raycastTap.Reset;
+        _app.MouseHook.ButtonPressed -= _raycastTap.CancelTap;
+        _app.MouseHook.InjectedInputReceived -= OnInjectedMouseInput;
+        _remoteInputPower.Dispose();
         _app.Profiles.ProfileError -= OnProfileError;
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();

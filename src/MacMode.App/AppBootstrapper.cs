@@ -55,10 +55,11 @@ public sealed class AppBootstrapper : IDisposable
         var processDetector = new ForegroundProcessDetector();
         Engine = new MappingEngine(Profiles, processDetector);
         Engine.Enabled = Settings.Current.MacModeEnabled;
+        Engine.SuspendForSynergy = Settings.Current.SuspendForSynergy;
 
         // Initialize hooks
         Hook = new KeyboardHook();
-        MouseHook = new MouseHook(Engine.ModState, () => Engine.Enabled);
+        MouseHook = new MouseHook(Engine.ModState, () => Engine.CanRemapInput);
     }
 
     /// <summary>

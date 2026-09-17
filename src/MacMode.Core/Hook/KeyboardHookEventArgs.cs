@@ -9,6 +9,8 @@ public class KeyboardHookEventArgs : EventArgs
     public bool IsKeyUp => !IsKeyDown;
     public bool IsExtended => (Flags & NativeMethods.LLKHF_EXTENDED) != 0;
     public bool IsInjected => (Flags & NativeMethods.LLKHF_INJECTED) != 0;
+    public IntPtr ExtraInfo { get; }
+    public bool IsMacModeInjected => IsInjected && ExtraInfo == InputOrigin.MacModeTag;
 
     /// <summary>True if the key is Left Alt (VK_LMENU or VK_MENU without extended flag).</summary>
     public bool IsLeftAlt =>
@@ -23,11 +25,12 @@ public class KeyboardHookEventArgs : EventArgs
     /// <summary>Set to true by the handler to suppress the key from reaching other apps.</summary>
     public bool Handled { get; set; }
 
-    public KeyboardHookEventArgs(int vkCode, uint scanCode, uint flags, bool isKeyDown)
+    public KeyboardHookEventArgs(int vkCode, uint scanCode, uint flags, bool isKeyDown, IntPtr extraInfo = default)
     {
         VirtualKeyCode = vkCode;
         ScanCode = scanCode;
         Flags = flags;
         IsKeyDown = isKeyDown;
+        ExtraInfo = extraInfo;
     }
 }

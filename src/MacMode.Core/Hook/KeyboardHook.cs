@@ -9,6 +9,7 @@ public sealed class KeyboardHook : IDisposable
     private IntPtr _hookId = IntPtr.Zero;
     private NativeMethods.LowLevelKeyboardProc? _proc;
     private bool _disposed;
+    private long _eventCount;
 
     /// <summary>
     /// Fired for every low-level keyboard event. Set e.Handled = true to suppress.
@@ -24,6 +25,7 @@ public sealed class KeyboardHook : IDisposable
     public DateTime LastEventTime { get; private set; } = DateTime.UtcNow;
 
     public bool IsInstalled => _hookId != IntPtr.Zero;
+    public long EventCount => Interlocked.Read(ref _eventCount);
 
     public void Install()
     {
@@ -47,7 +49,7 @@ public sealed class KeyboardHook : IDisposable
         }
 
         LastEventTime = DateTime.UtcNow;
-        Logger.Info("Keyboard hook installed.");
+        Logger.Info($"Keyboard hook installed on {InputEnvironment.Describe()}.");
     }
 
     /// <summary>
@@ -77,6 +79,9 @@ public sealed class KeyboardHook : IDisposable
     {
         LastEventTime = DateTime.UtcNow;
 
+        if (Interlocked.Increment(ref _eventCount) == 1)
+            ThreadPool.QueueUserWorkItem(_ => Logger.Info("Keyboard hook is receiving input."));
+
         if (nCode >= 0)
         {
             try
@@ -93,7 +98,8 @@ public sealed class KeyboardHook : IDisposable
                         (int)hookStruct.vkCode,
                         hookStruct.scanCode,
                         hookStruct.flags,
-                        isKeyDown);
+                        isKeyDown,
+                        hookStruct.dwExtraInfo);
 
                     KeyEvent?.Invoke(this, args);
 

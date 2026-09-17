@@ -25,13 +25,46 @@ public sealed class MappingEngine
     }
 
     private readonly ProfileManager _profiles;
-    private readonly ForegroundProcessDetector _processDetector;
+    private readonly Func<string> _getForegroundProcessName;
+    private readonly Action<NativeMethods.INPUT[]> _sendInput;
     private readonly ModifierState _modState = new();
 
     public ModifierState ModState => _modState;
 
     private State _state = State.Idle;
     private bool _enabled = true;
+    private bool _synergySuspended;
+
+    /// <summary>
+    /// Synergy's Windows server foregrounds its capture window while controlling
+    /// a client (win32KeepForeground=true). Never translate keys in that window,
+    /// or in Synergy's shortcut editor. The client owns its shortcut semantics.
+    /// </summary>
+    public bool SuspendForSynergy { get; set; } = true;
+
+    public bool CanRemapInput
+    {
+        get
+        {
+            string process = _getForegroundProcessName();
+            bool suspended = SuspendForSynergy && IsSynergyProcess(process);
+            if (suspended != _synergySuspended)
+            {
+                _synergySuspended = suspended;
+                // Do not inject cleanup keys here: Synergy now owns delivery.
+                _state = State.Idle;
+                _modState.Reset();
+                Logger.Info(suspended ? "Remapping paused for Synergy." : "Remapping resumed after Synergy.");
+            }
+            return _enabled && !IsRecording && !suspended;
+        }
+    }
+
+    private static bool IsSynergyProcess(string process) =>
+        process.Equals("synergy", StringComparison.OrdinalIgnoreCase) ||
+        process.Equals("synergy-core", StringComparison.OrdinalIgnoreCase) ||
+        process.Equals("synergys", StringComparison.OrdinalIgnoreCase) ||
+        process.Equals("synergy-server", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// When true, the engine passes all keys through without processing.
@@ -62,10 +95,12 @@ public sealed class MappingEngine
         }
     }
 
-    public MappingEngine(ProfileManager profiles, ForegroundProcessDetector processDetector)
+    public MappingEngine(ProfileManager profiles, ForegroundProcessDetector processDetector,
+        Func<string>? foregroundProcessName = null, Action<NativeMethods.INPUT[]>? sendInput = null)
     {
         _profiles = profiles;
-        _processDetector = processDetector;
+        _getForegroundProcessName = foregroundProcessName ?? processDetector.GetForegroundProcessName;
+        _sendInput = sendInput ?? KeySender.SendBatch;
     }
 
     /// <summary>
@@ -74,8 +109,13 @@ public sealed class MappingEngine
     /// </summary>
     public bool ProcessKeyEvent(KeyboardHookEventArgs e)
     {
-        // Always pass through injected events (our own SendInput) to avoid recursion
-        if (e.IsInjected)
+        // Only our marked output bypasses the engine. Synergy also injects input;
+        // ignoring LLKHF_INJECTED wholesale prevents incoming shortcuts working.
+        if (e.IsMacModeInjected)
+            return false;
+
+        bool canRemap = CanRemapInput;
+        if (_synergySuspended)
             return false;
 
         // Track physical modifier state regardless of Mac Mode
@@ -94,7 +134,7 @@ public sealed class MappingEngine
             return false;
         }
 
-        if (!_enabled)
+        if (!canRemap)
             return false;
 
         // Right Alt (AltGr) is always passed through
@@ -156,7 +196,7 @@ public sealed class MappingEngine
         // Non-modifier keydown: check for a chord mapping (regular or special action)
         if (e.IsKeyDown && !IsModifierKey(e.VirtualKeyCode))
         {
-            string processName = _processDetector.GetForegroundProcessName();
+            string processName = _getForegroundProcessName();
             var triggerMods = _modState.ActiveModifiers;
             var mapping = _profiles.GetMapping(processName, triggerMods, e.VirtualKeyCode);
 
@@ -229,7 +269,7 @@ public sealed class MappingEngine
         if (e.IsKeyDown && IsGlobalPassthrough(e.VirtualKeyCode))
         {
             Logger.Debug($"ChordActive -> Idle: re-engaging Alt for global passthrough VK 0x{e.VirtualKeyCode:X2}");
-            KeySender.SendBatch(new[] { KeySender.MakeKeyDown(NativeMethods.VK_LMENU) });
+            _sendInput(new[] { KeySender.MakeKeyDown(NativeMethods.VK_LMENU) });
             _state = State.Idle;
             return false; // Let the key through; system now sees Alt+key
         }
@@ -237,7 +277,7 @@ public sealed class MappingEngine
         // Another keydown: check for a new chord mapping (regular or special action)
         if (e.IsKeyDown)
         {
-            string processName = _processDetector.GetForegroundProcessName();
+            string processName = _getForegroundProcessName();
             var triggerMods = _modState.ActiveModifiers;
             var mapping = _profiles.GetMapping(processName, triggerMods, e.VirtualKeyCode);
 
@@ -332,7 +372,7 @@ public sealed class MappingEngine
             inputs.Add(KeySender.MakeKeyUp(modVk));
         }
 
-        KeySender.SendBatch(inputs.ToArray());
+        _sendInput(inputs.ToArray());
     }
 
     /// <summary>
@@ -348,7 +388,7 @@ public sealed class MappingEngine
             KeySender.MakeKeyUp(NativeMethods.VK_LMENU),
             KeySender.MakeKeyUp(NativeMethods.VK_LCONTROL),
         };
-        KeySender.SendBatch(inputs);
+        _sendInput(inputs);
         _state = State.ChordActive;
     }
 
@@ -397,6 +437,11 @@ public sealed class MappingEngine
     /// </summary>
     private bool IsGlobalPassthrough(int vk)
     {
+        // Reserve the shared-display hotkeys, including after a remapped chord
+        // while Alt remains held. Otherwise ChordActive swallows these keys.
+        if (_modState.CtrlDown && (vk == 0x31 || vk == 0x32))
+            return true;
+
         if (vk == NativeMethods.VK_TAB || vk == NativeMethods.VK_F4)
             return true;
 
@@ -410,6 +455,7 @@ public sealed class MappingEngine
     {
         return vk is NativeMethods.VK_LSHIFT or NativeMethods.VK_RSHIFT or NativeMethods.VK_SHIFT
             or NativeMethods.VK_LCONTROL or NativeMethods.VK_RCONTROL or NativeMethods.VK_CONTROL
-            or NativeMethods.VK_LMENU or NativeMethods.VK_RMENU or NativeMethods.VK_MENU;
+            or NativeMethods.VK_LMENU or NativeMethods.VK_RMENU or NativeMethods.VK_MENU
+            or NativeMethods.VK_LWIN or NativeMethods.VK_RWIN;
     }
 }

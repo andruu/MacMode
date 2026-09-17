@@ -27,6 +27,12 @@ public sealed class MouseHook : IDisposable
     private readonly ModifierState _modState;
     private readonly Func<bool> _isEnabled;
 
+    /// <summary>Allows tap observers to cancel when a mouse chord is used.</summary>
+    public event Action? ButtonPressed;
+
+    /// <summary>Incoming injected movement, clicks or wheel input, excluding our output.</summary>
+    public event Action? InjectedInputReceived;
+
     // Shared state between hook callback and worker thread.
     // volatile ensures visibility across threads.
     private volatile bool _swapped;
@@ -96,10 +102,17 @@ public sealed class MouseHook : IDisposable
             try
             {
                 var info = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
-                bool injected = (info.flags & NativeMethods.LLMHF_INJECTED) != 0;
+                bool ownInput = (info.flags & NativeMethods.LLMHF_INJECTED) != 0 &&
+                    info.dwExtraInfo == InputOrigin.MacModeTag;
                 int msg = wParam.ToInt32();
 
-                if (!injected && msg == NativeMethods.WM_LBUTTONDOWN && _modState.LeftAltDown && !_swapped)
+                if (!ownInput && (info.flags & NativeMethods.LLMHF_INJECTED) != 0)
+                    InjectedInputReceived?.Invoke();
+
+                if (!ownInput && msg is 0x0201 or 0x0204 or 0x0207 or 0x020B)
+                    ButtonPressed?.Invoke();
+
+                if (!ownInput && msg == NativeMethods.WM_LBUTTONDOWN && _modState.LeftAltDown && !_swapped)
                 {
                     _swapped = true;
                     _swapStartTick = Environment.TickCount64;
@@ -108,7 +121,7 @@ public sealed class MouseHook : IDisposable
                     return (IntPtr)1;
                 }
 
-                if (!injected && msg == NativeMethods.WM_LBUTTONUP && _swapped)
+                if (!ownInput && msg == NativeMethods.WM_LBUTTONUP && _swapped)
                 {
                     _swapped = false;
                     _pendingUp = true;

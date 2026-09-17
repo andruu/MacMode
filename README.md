@@ -106,6 +106,98 @@ dotnet run --project src/MacMode.App
    - **Restart as Admin** -- relaunch with elevated privileges (needed for remapping inside admin apps like Task Manager)
    - **Exit** -- quit the app
 
+### Using Synergy
+
+MacMode 1.2.2 supports input received through Synergy. It tags its own generated
+keyboard and mouse events to prevent loops, while allowing other injected input
+to use the normal profiles. The marker identifies MacMode's output, not the
+identity of other input-generating applications.
+
+When Windows hosts the shared keyboard, MacMode automatically pauses while
+Synergy's capture window is foreground, and resumes when you return to a Windows
+app. It also pauses in Synergy's settings so recording shortcuts is not remapped.
+Keep Synergy's `win32KeepForeground` option enabled (its default); if disabled,
+automatic pause cannot reliably identify that input is being sent to the Mac.
+The pause does not change your manual ON/OFF or suspend setting. To opt out, set
+`"suspendForSynergy": false` in MacMode's settings and restart MacMode.
+
+The current setup uses **Mac as the input host and Windows as the receiver**, with
+Windows on the left. The Logitech devices use their existing Mac Easy-Switch
+connections. The Mac's Synergy modifiers remain at their defaults. On the Windows
+receiver, **Alt → Super** makes Opt | Start become Windows, and **Super → Alt**
+routes Command through MacMode's existing Alt-based profiles. Ctrl and Shift remain
+unchanged. Native macOS keyboard settings are unchanged.
+
+For Raycast on Windows, the physical G16 Windows key works but the same injected
+key received through Synergy was recorded without activating Raycast. The optional
+`"raycastOnInjectedWindowsTap": true` setting opens the running Raycast app through
+its local named pipe on release of a standalone injected Windows key. A second
+tap returns focus to the previous app, allowing Raycast's normal focus-loss
+dismissal. This avoids starting Explorer and a second Raycast process on each tap.
+If Windows rejects the return-focus request, the worker briefly joins its,
+Raycast's and the destination window's input queues, retries, and detaches both
+connections in a `finally` block. It verifies the actual foreground window rather
+than relying on the activation API's return value, skips unresponsive windows,
+and rechecks the foreground and previous window before the handoff. This work
+stays off the keyboard hook thread.
+It does not suppress or
+generate keyboard events. Physical Windows keys retain Raycast's existing binding;
+other held keys and mouse clicks cancel the launcher tap. MacMode's own generated
+Windows shortcuts never trigger the launcher. It is inactive when MacMode is off,
+in Synergy's capture/settings window, or in MacMode's recorder. It only dismisses
+the Raycast launcher window observed after its own open request; other Raycast
+windows (including Settings and its recorder) are left alone. The previous app
+must still have a visible window. Raycast must already be running. The local pipe
+message was verified against installed Raycast 2.2; future Raycast versions may
+require an update to this integration.
+Set this option to `false` and restart MacMode to disable the workaround. Injected
+input is identified by Windows' injection flag, not by authenticated app identity.
+
+For Windows idle sleep during frequent Synergy use, the optional setting
+`"refreshIdleTimersForRemoteInput": true` refreshes the display and system idle
+timers when incoming injected keyboard or mouse activity is observed. Mouse
+movement, clicks, and wheel input count; MacMode's own generated events do not.
+The hook only marks activity. A dedicated background worker batches notifications
+every two seconds and calls
+`SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)`. Power calls
+and their logging never run on the input-hook dispatcher. Shutdown signals the
+worker without making the input thread wait for it.
+There is no continuous keep-awake request: idle timer ticks without new input do
+nothing, and Windows' existing timeouts apply after the last visit. Disabling
+MacMode or this setting stops the refresh. It does not change power-plan timeouts,
+screen-saver/security settings, or explicit sleep/lid-close behavior. It cannot
+wake a PC whose network connection has already suspended.
+
+This workaround addresses Windows' power idle timers specifically. The observed
+`SPI_GETBLOCKSENDINPUTRESETS` setting concerns the screen saver; it is not by
+itself proof of the cause of Modern Standby. That setting remains unchanged.
+
+Changing the Logitech connection does not automatically change Synergy's input
+source. The source must match the computer the shared keyboard and mouse are
+connected to. After changing Synergy settings, verify the running core's role and
+connection in its log; a saved setting alone does not prove the role took effect.
+
+`Ctrl+Alt+1` and `Ctrl+Alt+2` pass through MacMode, including immediately after a
+mapped shortcut while Alt is still held. These are reserved for the shared-display
+workflow; MacMode itself does not switch computers or monitor inputs.
+
+Run the isolated keyboard regression checks with:
+
+```powershell
+dotnet run --project tests/MacMode.RegressionTests -c Release
+```
+
+These checks use the real profiles and capture generated input without sending
+keystrokes to the desktop.
+
+For a live Windows check, run `dotnet run --project tests/MacMode.InputCheck -c Release`.
+The disposable test app has two scratch tabs. Exercise Alt+A, Alt+C, End, Alt+V,
+Alt+W, and Alt+Q using the running MacMode app. It records only counts and pass/fail
+booleans in `%LocalAppData%\MacMode\checks\input-check.json`; it never generates
+input or records typed text. This checks the Windows hook, not end-to-end Mac input.
+The MacMode log also reports the first received keyboard event, without
+recording its contents, to distinguish a running process from a working hook.
+
 ### Panic Key
 
 Press **Ctrl+Alt+Backspace** at any time to immediately disable Mac Mode. A notification confirms the action.

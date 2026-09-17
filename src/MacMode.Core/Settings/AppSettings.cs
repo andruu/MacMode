@@ -12,4 +12,13 @@ public sealed class AppSettings
 
     [JsonPropertyName("debugLogging")]
     public bool DebugLogging { get; set; } = false;
+
+    [JsonPropertyName("suspendForSynergy")]
+    public bool SuspendForSynergy { get; set; } = true;
+
+    [JsonPropertyName("raycastOnInjectedWindowsTap")]
+    public bool RaycastOnInjectedWindowsTap { get; set; } = false;
+
+    [JsonPropertyName("refreshIdleTimersForRemoteInput")]
+    public bool RefreshIdleTimersForRemoteInput { get; set; } = false;
 }
