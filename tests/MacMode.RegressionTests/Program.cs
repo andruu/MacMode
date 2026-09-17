@@ -55,6 +55,21 @@ foreach (bool injected in new[] { false, true })
         h.Key('C', true, injected);
         Check(h.Down(Ctrl) && h.Down(Shift) && h.Down('C'), "Warp profile was not applied");
     });
+    Test($"{kind} Alt+Q dismisses Raycast instead of closing its launcher window", () =>
+    {
+        // The default close-window action posts WM_CLOSE to the foreground window.
+        // Raycast destroys its launcher on WM_CLOSE (rather than hiding it), after
+        // which its hotkey still fires but there is no window left to show.
+        var h = New("raycast");
+        h.Key(Alt, true, injected);
+        Check(h.Key('Q', true, injected), "Raycast Alt+Q must be consumed");
+        Check(h.Down(NativeMethods.VK_ESCAPE) && h.Up(NativeMethods.VK_ESCAPE) && h.Up(Alt),
+            "Raycast Alt+Q must send Escape with Alt cancelled");
+        Check(h.Events.Count == 3, "Raycast Alt+Q must generate exactly Alt-up, Escape down, Escape up");
+        var fallback = profiles.GetMapping("chrome", ModifierFlags.None, 'Q');
+        Check(fallback != null && fallback.IsSpecialAction && fallback.SpecialActionName == "close-window",
+            "Other apps must keep the close-window action");
+    });
 }
 
 Test("Own generated input cannot change modifier state or recurse", () =>

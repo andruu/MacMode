@@ -32,6 +32,7 @@
     <EmbeddedResource Include="..\..\profiles\warp.json" Link="DefaultProfiles\warp.json" />
     <EmbeddedResource Include="..\..\profiles\terminal.json" Link="DefaultProfiles\terminal.json" />
     <EmbeddedResource Include="..\..\profiles\explorer.json" Link="DefaultProfiles\explorer.json" />
+    <EmbeddedResource Include="..\..\profiles\raycast.json" Link="DefaultProfiles\raycast.json" />
   </ItemGroup>
 
 </Project>

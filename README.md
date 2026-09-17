@@ -28,6 +28,7 @@ This project was vibecoded by a developer with 20+ years on Mac who got tired of
   - [Warp Terminal](#warp-terminal)
   - [Windows Terminal / PowerShell](#windows-terminal--powershell)
   - [Windows Explorer](#windows-explorer)
+  - [Raycast](#raycast)
 - [Adding Custom Shortcuts](#adding-custom-shortcuts)
   - [Using the Profile Editor](#using-the-profile-editor)
   - [Editing JSON Manually](#editing-json-manually)
@@ -152,6 +153,13 @@ message was verified against installed Raycast 2.2; future Raycast versions may
 require an update to this integration.
 Set this option to `false` and restart MacMode to disable the workaround. Injected
 input is identified by Windows' injection flag, not by authenticated app identity.
+
+None of the above affects Raycast's own hotkey on a physical keyboard: Raycast
+listens for the Copilot key (Shift+Win+F23) with its own low-level hook, and
+MacMode passes that chord through untouched. If the Copilot key seems to stop
+opening Raycast while MacMode is running, the usual cause is that Cmd+Q was
+pressed while the Raycast launcher was in front, which closes the launcher
+window for good (see the [Raycast](#raycast) profile). Restart Raycast to recover.
 
 For Windows idle sleep during frequent Synergy use, the optional setting
 `"refreshIdleTimersForRemoteInput": true` refreshes the display and system idle
@@ -484,6 +492,24 @@ Process names: `explorer`
 | Cmd+Backspace | Alt+Backspace | Delete | Move to Recycle Bin |
 
 > **Note:** Alt+Left/Right are intentionally NOT remapped in Explorer, since their native behavior (back/forward navigation) is useful.
+
+---
+
+### Raycast
+
+Process names: `raycast`
+
+| Mac Shortcut | You Press | Windows Receives | Description |
+|---|---|---|---|
+| Cmd+Q | Alt+Q | Escape | Dismiss the launcher |
+
+> **Why this profile exists:** the default Cmd+Q action posts `WM_CLOSE` to the
+> foreground window. Raycast for Windows responds to that by *destroying* its
+> launcher window rather than hiding it. The process keeps running and its hotkey
+> (e.g. the Copilot key) still fires, but there is no window left to show, so
+> Raycast appears dead until it is restarted. Mapping Cmd+Q to Escape in Raycast
+> dismisses the launcher the way it expects. Every other app keeps the normal
+> close-window behavior.
 
 ---
 

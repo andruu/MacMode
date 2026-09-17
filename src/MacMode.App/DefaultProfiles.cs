@@ -13,7 +13,7 @@ public static class DefaultProfiles
 
     private static readonly string[] ShippedProfileNames =
     {
-        "default", "chrome", "vscode", "warp", "terminal", "explorer"
+        "default", "chrome", "vscode", "warp", "terminal", "explorer", "raycast"
     };
 
     /// <summary>

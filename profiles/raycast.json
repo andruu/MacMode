@@ -1,0 +1,7 @@
+{
+  "name": "Raycast",
+  "processNames": ["raycast"],
+  "mappings": [
+    { "trigger": "Alt+Q", "action": "Escape" }
+  ]
+}
