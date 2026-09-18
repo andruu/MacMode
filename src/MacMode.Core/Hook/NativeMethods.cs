@@ -140,6 +140,8 @@ public static class NativeMethods
     public const int VK_SPACE = 0x20;
     public const int VK_BACK = 0x08;    // Backspace
     public const int VK_ESCAPE = 0x1B;
+    public const int VK_HOME = 0x24;
+    public const int VK_LEFT = 0x25;
     public const int VK_LWIN = 0x5B;    // Left Windows key
     public const int VK_RWIN = 0x5C;    // Right Windows key
 

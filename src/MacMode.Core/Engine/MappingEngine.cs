@@ -340,9 +340,23 @@ public sealed class MappingEngine
             inputs.Add(KeySender.MakeKeyDown(modVk));
         }
 
-        // Step 2: Cancel Alt if transitioning from AltPending
+        // Step 2: Cancel Alt if transitioning from AltPending.
+        // The physical Alt-down already reached the app and the chord key was
+        // suppressed, so if nothing else goes down before this Alt-up the app
+        // sees a bare Alt tap and focuses its menu bar (Win32 DefWindowProc and
+        // Electron/Chromium alike). The action key then lands in the menu, e.g.
+        // Alt+Left -> Home opens the app menu instead of going to line start.
+        // Actions with modifiers are already covered by Step 1; mask the rest
+        // with Ctrl, as CancelAltAndTransition does. A physically held Ctrl is
+        // re-pressed (an autorepeat) rather than tapped so it is never released
+        // out from under the user.
+        bool maskAltRelease = cancelAlt && inputs.Count == 0;
+        if (maskAltRelease)
+            inputs.Add(KeySender.MakeKeyDown(NativeMethods.VK_LCONTROL));
         if (cancelAlt)
             inputs.Add(KeySender.MakeKeyUp(NativeMethods.VK_LMENU));
+        if (maskAltRelease && !physicalCtrlHeld)
+            inputs.Add(KeySender.MakeKeyUp(NativeMethods.VK_LCONTROL));
 
         // Step 3: Temporarily release modifiers that are held but not needed by the action
         if (shouldReleaseCtrl)

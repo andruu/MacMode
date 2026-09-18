@@ -55,6 +55,29 @@ foreach (bool injected in new[] { false, true })
         h.Key('C', true, injected);
         Check(h.Down(Ctrl) && h.Down(Shift) && h.Down('C'), "Warp profile was not applied");
     });
+    Test($"{kind} Alt+Left sends Home without a bare Alt tap", () =>
+    {
+        // Claude Desktop has no profile, so this exercises the default mapping.
+        // The physical chord key is suppressed, so unless something else goes down
+        // first, the app sees Alt pressed and released on its own, focuses its
+        // menu bar, and the Home lands in the menu instead of the editor.
+        var h = New("claude");
+        h.Key(Alt, true, injected);
+        Check(h.Key(NativeMethods.VK_LEFT, true, injected), "Alt+Left must be consumed");
+        Check(h.Down(NativeMethods.VK_HOME) && h.Up(NativeMethods.VK_HOME), "Home was not sent");
+        Check(h.KeyPressedBeforeAltRelease(), "Nothing pressed before Alt-up: the app sees a bare Alt tap");
+        Check(h.Balanced(Ctrl), "Mask key must be released");
+        Check(!h.Engine.ModState.CtrlDown, "Own mask key changed tracked modifier state");
+    });
+    Test($"{kind} Alt+Shift+Left keeps Shift held while masking the Alt release", () =>
+    {
+        var h = New("claude");
+        h.Key(Alt, true, injected);
+        h.Key(Shift, true, injected);
+        Check(h.Key(NativeMethods.VK_LEFT, true, injected), "Alt+Shift+Left must be consumed");
+        Check(h.Down(NativeMethods.VK_HOME) && !h.Down(Shift) && !h.Up(Shift), "Shift+Home must reuse the held Shift untouched");
+        Check(h.KeyPressedBeforeAltRelease() && h.Balanced(Ctrl), "Alt release must be masked without disturbing Shift");
+    });
     Test($"{kind} Alt+Q dismisses Raycast instead of closing its launcher window", () =>
     {
         // The default close-window action posts WM_CLOSE to the foreground window.
@@ -65,7 +88,8 @@ foreach (bool injected in new[] { false, true })
         Check(h.Key('Q', true, injected), "Raycast Alt+Q must be consumed");
         Check(h.Down(NativeMethods.VK_ESCAPE) && h.Up(NativeMethods.VK_ESCAPE) && h.Up(Alt),
             "Raycast Alt+Q must send Escape with Alt cancelled");
-        Check(h.Events.Count == 3, "Raycast Alt+Q must generate exactly Alt-up, Escape down, Escape up");
+        Check(h.KeyPressedBeforeAltRelease() && h.Balanced(Ctrl), "Escape has no modifier, so the Alt release must be masked");
+        Check(h.Events.Count == 5, "Raycast Alt+Q must generate exactly Ctrl down, Alt-up, Ctrl up, Escape down, Escape up");
         var fallback = profiles.GetMapping("chrome", ModifierFlags.None, 'Q');
         Check(fallback != null && fallback.IsSpecialAction && fallback.SpecialActionName == "close-window",
             "Other apps must keep the close-window action");
@@ -389,4 +413,13 @@ sealed class Harness
             injected ? NativeMethods.LLKHF_INJECTED : 0, down, extra));
     public bool Down(int vk) => Events.Any(i => i.u.ki.wVk == vk && (i.u.ki.dwFlags & NativeMethods.KEYEVENTF_KEYUP) == 0);
     public bool Up(int vk) => Events.Any(i => i.u.ki.wVk == vk && (i.u.ki.dwFlags & NativeMethods.KEYEVENTF_KEYUP) != 0);
+    /// <summary>True when some key goes down before the synthetic Alt-up, i.e. the app never sees a bare Alt tap.</summary>
+    public bool KeyPressedBeforeAltRelease()
+    {
+        int altUp = Events.FindIndex(i => i.u.ki.wVk == NativeMethods.VK_LMENU && (i.u.ki.dwFlags & NativeMethods.KEYEVENTF_KEYUP) != 0);
+        return altUp > 0 && Events.Take(altUp).Any(i => (i.u.ki.dwFlags & NativeMethods.KEYEVENTF_KEYUP) == 0);
+    }
+    public bool Balanced(int vk) =>
+        Events.Count(i => i.u.ki.wVk == vk && (i.u.ki.dwFlags & NativeMethods.KEYEVENTF_KEYUP) == 0) ==
+        Events.Count(i => i.u.ki.wVk == vk && (i.u.ki.dwFlags & NativeMethods.KEYEVENTF_KEYUP) != 0);
 }

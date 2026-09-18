@@ -699,7 +699,7 @@ The core engine uses a three-state machine:
                                +-- Unmapped key: suppress
 ```
 
-**Key design decision:** Left Alt is NOT suppressed when first pressed. It passes through to the system naturally. This means Alt+Tab, Alt+F4, and Alt+Space work without any special handling. When a chord key is detected, the engine cancels the Alt (sends Alt-up) and injects the mapped shortcut in a single atomic `SendInput` batch.
+**Key design decision:** Left Alt is NOT suppressed when first pressed. It passes through to the system naturally. This means Alt+Tab, Alt+F4, and Alt+Space work without any special handling. When a chord key is detected, the engine cancels the Alt (sends Alt-up) and injects the mapped shortcut in a single atomic `SendInput` batch. Because the app already saw the Alt-down and the chord key was suppressed, a bare Alt-up would look like an Alt tap and focus the app's menu bar (Win32 and Electron/Chromium apps alike), sending the action key into the menu. The batch therefore always presses something before releasing Alt: the action's own modifier when it has one (Ctrl-down precedes Alt-up in `Alt+C -> Ctrl+C`), otherwise a masking Ctrl press, as in `Alt+Left -> Home`.
 
 ---
 
@@ -744,7 +744,7 @@ Set `"debugLogging": true` in `settings.json` to see detailed key event traces f
 | **Games** | Some fullscreen DirectX/Vulkan games may not respond to SendInput |
 | **Hook timeout** | Windows enforces a ~300ms timeout on low-level hook callbacks. Extreme system load could cause the OS to silently remove the hook. MacMode includes a health monitor that automatically detects and reinstalls the hook if this happens |
 | **Secure desktop** | The hook does not operate on the UAC secure desktop. This is by design |
-| **Menu bar flash** | Since Alt passes through before being cancelled, a very brief menu bar highlight may occasionally appear when using chord shortcuts. This is usually imperceptible |
+| **Menu bar flash** | The engine never releases Alt without pressing another key first (see [State Machine](#state-machine)), so chord shortcuts should not activate an app's menu bar. If a specific app still shows a brief menu highlight on a chord, please report it with the app name and the shortcut |
 | **Other Alt hotkey apps** | Apps that register their own global Alt+key hotkeys (e.g., GPU overlays, screenshot tools, clipboard managers) may conflict with MacMode since both hooks race to handle the same keystroke. If you experience inconsistent behavior, check the other app's settings and remap its hotkeys to avoid Alt+letter combos |
 
 ---
