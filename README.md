@@ -102,7 +102,8 @@ dotnet run --project src/MacMode.App
 4. **Right-click** the tray icon for options:
    - **Mac Mode: ON/OFF** -- toggle remapping
    - **Suspend (10 min)** -- temporarily disable, auto-re-enables
-   - **Start on Login** -- launch at Windows startup
+   - **Start on Login** -- launch at Windows startup (Registry Run key, normal privileges)
+   - **Start on Login (Admin)** -- launch at Windows startup already elevated (Task Scheduler task with highest privileges, no UAC prompt at login). Windows only lets an elevated process create that task, so use **Restart as Admin** first; from a normal MacMode the item explains this and leaves your existing setting alone. If the setting is on but nothing is registered, MacMode re-registers it on the next launch and tells you
    - **Edit Profiles...** -- open the built-in profile editor GUI
    - **Restart as Admin** -- relaunch with elevated privileges (needed for remapping inside admin apps like Task Manager)
    - **Exit** -- quit the app

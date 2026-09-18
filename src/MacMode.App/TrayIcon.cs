@@ -132,6 +132,8 @@ public sealed class TrayIcon : IDisposable
         _hookHealthTimer = new DispatcherTimer { Interval = HookHealthInterval };
         _hookHealthTimer.Tick += OnHookHealthCheck;
         _hookHealthTimer.Start();
+
+        ReconcileStartupRegistration();
     }
 
     private void OnKeyEvent(object? sender, KeyboardHookEventArgs e)
@@ -247,25 +249,68 @@ public sealed class TrayIcon : IDisposable
     private void OnStartOnLogin(object? sender, EventArgs e)
     {
         bool enable = !_startOnLoginItem.Checked;
-        StartupManager.DisableAll();
-        if (enable)
-            StartupManager.EnableRegistry();
-        _startOnLoginItem.Checked = enable;
-        _startOnLoginAdminItem.Checked = false;
-        _settings.Current.StartOnLogin = enable;
-        _settings.Save();
+        if (!enable)
+            StartupManager.DisableAll();
+        else if (!StartupManager.EnableRegistry())
+            _notifyIcon.ShowBalloonTip(5000, "MacMode",
+                "Could not register Start on Login. See the log for details.",
+                System.Windows.Forms.ToolTipIcon.Error);
+        SaveStartupState();
     }
 
     private void OnStartOnLoginAdmin(object? sender, EventArgs e)
     {
         bool enable = !_startOnLoginAdminItem.Checked;
-        StartupManager.DisableAll();
-        if (enable)
-            StartupManager.EnableTaskScheduler();
-        _startOnLoginAdminItem.Checked = enable;
-        _startOnLoginItem.Checked = false;
-        _settings.Current.StartOnLogin = enable;
+        if (!enable)
+            StartupManager.DisableAll();
+        else if (!IsRunningAsAdmin)
+            // schtasks refuses a highest-privilege task from a normal process, and
+            // the old code tore down the existing Run key before finding that out.
+            _notifyIcon.ShowBalloonTip(6000, "MacMode",
+                "Start on Login (Admin) needs an elevated MacMode. Use 'Restart as Admin' first, then enable it again. Your current Start on Login setting is unchanged.",
+                System.Windows.Forms.ToolTipIcon.Warning);
+        else if (!StartupManager.EnableTaskScheduler())
+            _notifyIcon.ShowBalloonTip(5000, "MacMode",
+                "Could not create the elevated startup task. See the log for details.",
+                System.Windows.Forms.ToolTipIcon.Error);
+        SaveStartupState();
+    }
+
+    /// <summary>Menu checks follow what is actually registered, not what was attempted.</summary>
+    private StartupMode RefreshStartupMenu()
+    {
+        var mode = StartupManager.GetCurrentMode();
+        _startOnLoginItem.Checked = mode == StartupMode.Registry;
+        _startOnLoginAdminItem.Checked = mode == StartupMode.TaskScheduler;
+        return mode;
+    }
+
+    private void SaveStartupState()
+    {
+        _settings.Current.StartOnLogin = RefreshStartupMenu() != StartupMode.None;
         _settings.Save();
+    }
+
+    /// <summary>
+    /// The setting records intent; the Run key or logon task is what Windows acts
+    /// on. If the setting is on but nothing is registered (an earlier failed switch
+    /// to elevated startup removed the Run key), register in the mode that matches
+    /// this process. The setting is left alone if that fails, so a later run retries.
+    /// </summary>
+    private void ReconcileStartupRegistration()
+    {
+        if (!_settings.Current.StartOnLogin || StartupManager.GetCurrentMode() != StartupMode.None)
+            return;
+
+        bool ok = IsRunningAsAdmin ? StartupManager.EnableTaskScheduler() : StartupManager.EnableRegistry();
+        Logger.Info(ok
+            ? "Start on login was enabled in settings but not registered; re-registered."
+            : "Start on login was enabled in settings but not registered, and re-registering failed.");
+        RefreshStartupMenu();
+        if (ok)
+            _notifyIcon.ShowBalloonTip(4000, "MacMode",
+                IsRunningAsAdmin ? "Start on Login (Admin) was re-registered." : "Start on Login was re-registered.",
+                System.Windows.Forms.ToolTipIcon.Info);
     }
 
     private void OnEditProfiles(object? sender, EventArgs e)

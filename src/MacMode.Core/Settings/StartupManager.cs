@@ -27,26 +27,40 @@ public static class StartupManager
         return StartupMode.None;
     }
 
-    public static void EnableRegistry()
+    /// <summary>
+    /// Registers the Run key. Returns false if nothing could be registered; in
+    /// that case any existing registration is left untouched.
+    /// </summary>
+    public static bool EnableRegistry()
     {
         string exePath = Environment.ProcessPath ?? string.Empty;
-        if (string.IsNullOrEmpty(exePath)) return;
+        if (string.IsNullOrEmpty(exePath)) return false;
 
-        DisableAll();
-        SetRegistryKey(exePath);
+        if (!SetRegistryKey(exePath)) return false;
+        DeleteScheduledTask();
         Logger.Info("Start on login enabled (Registry, normal privileges).");
+        return true;
     }
 
-    public static void EnableTaskScheduler()
+    /// <summary>
+    /// Registers the elevated logon task. schtasks refuses a HighestAvailable task
+    /// from a non-elevated process, so the task is created before the existing
+    /// registration is touched: a failure must not leave the user with nothing.
+    /// Returns false if the task could not be created.
+    /// </summary>
+    public static bool EnableTaskScheduler()
     {
         string exePath = Environment.ProcessPath ?? string.Empty;
-        if (string.IsNullOrEmpty(exePath)) return;
+        if (string.IsNullOrEmpty(exePath)) return false;
 
-        DisableAll();
-        if (CreateScheduledTask(exePath))
-            Logger.Info("Start on login enabled (Task Scheduler, elevated).");
-        else
-            Logger.Error("Failed to create scheduled task for elevated startup.");
+        if (!CreateScheduledTask(exePath))
+        {
+            Logger.Error("Failed to create scheduled task for elevated startup; existing startup registration left unchanged.");
+            return false;
+        }
+        RemoveRegistryKey();
+        Logger.Info("Start on login enabled (Task Scheduler, elevated).");
+        return true;
     }
 
     public static void DisableAll()
@@ -188,19 +202,21 @@ public static class StartupManager
         catch { return false; }
     }
 
-    private static void SetRegistryKey(string exePath)
+    private static bool SetRegistryKey(string exePath)
     {
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, true);
-            key?.SetValue(TaskName, $"\"{exePath}\"");
+            if (key == null) return false;
+            key.SetValue(TaskName, $"\"{exePath}\"");
+            return true;
         }
         catch (Exception ex)
         {
             Logger.Error($"Failed to set registry run key: {ex.Message}");
+            return false;
         }
     }
-
     private static void RemoveRegistryKey()
     {
         try
