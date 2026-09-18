@@ -17,7 +17,7 @@ internal static class Program
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         int seconds = args.Length > 0 && int.TryParse(args[0], out var requested) ? Math.Clamp(requested, 10, 180) : 120;
         var window = new Form { Text = "Windows modifier check", Width = 510, Height = 210, StartPosition = FormStartPosition.CenterScreen };
-        var label = new Label { Dock = DockStyle.Fill, Padding = new Padding(18), Text = "Move onto Windows and tap Opt | Start twice.\n\nThis check records modifier keys only. It closes automatically.", Font = new System.Drawing.Font("Segoe UI", 12) };
+        var label = new Label { Dock = DockStyle.Fill, Padding = new Padding(18), Text = "Passive trace running. Nothing to press here.\n\nSwitch to the app you want to check and use your MacMode shortcuts (Alt = Cmd). Only modifier keys and event origins are recorded, never typed text.", Font = new System.Drawing.Font("Segoe UI", 12) };
         window.Controls.Add(label);
         string latest = "Waiting for input";
         var detector = new ForegroundProcessDetector();
@@ -54,7 +54,7 @@ internal static class Program
         if (kh == IntPtr.Zero || mh == IntPtr.Zero) throw new InvalidOperationException("Cannot install passive diagnostic hooks");
         using var timer = new System.Windows.Forms.Timer { Interval = 500 };
         timer.Tick += (_, _) => {
-            label.Text = "Tap Opt | Start twice, then Command once.\n\n" + latest + "\nCloses in " + Math.Max(0, seconds - started.ElapsedMilliseconds / 1000) + " seconds.";
+            label.Text = "Passive trace running. Use your shortcuts in the app you want to check.\n\nLast modifier: " + latest + "\nCloses in " + Math.Max(0, seconds - started.ElapsedMilliseconds / 1000) + " seconds.";
             File.WriteAllText(output, JsonSerializer.Serialize(new { counts, transitions }, new JsonSerializerOptions { WriteIndented = true }));
             if (started.Elapsed.TotalSeconds >= seconds) window.Close();
         };
